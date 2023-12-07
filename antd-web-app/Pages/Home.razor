@@ -1,0 +1,16 @@
+﻿@page "/"
+
+<PageTitle>Home</PageTitle>
+
+<h1>Hello, world!</h1>
+
+Welcome to your new app.
+
+<Button Type="@ButtonType.Primary" OnClick="_ => _nav?.NavigateTo(_tree1_uri)">树型Grid展示页面</Button>
+<Button Type="@ButtonType.Primary" OnClick="_ => _nav?.NavigateTo(_page1_uri)">分页Grid展示页面</Button>
+
+@code{
+    static readonly string _tree1_uri = "/tree1";
+    static readonly string _page1_uri = "/page1";
+    [Inject] NavigationManager? _nav{ get;set; }
+}

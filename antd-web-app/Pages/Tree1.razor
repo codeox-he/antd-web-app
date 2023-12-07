@@ -1,0 +1,80 @@
+﻿@page "/tree1"
+@using System.Text.Json.Nodes;
+
+<PageTitle>Tree1</PageTitle>
+<Title>会出现列索引溢出 展开按钮错位</Title>
+<Button Type="@ButtonType.Primary" OnClick="_ => load_json_data()">加载数据</Button>
+<Table Bordered RemoteDataSource HidePagination Size="@TableSize.Small" TItem="JsonObject"
+        DataSource="get_disp_rows()" TreeChildren="get_disp_rows" Total="jdatas?.Count ?? 0"
+        ExpandIconColumnIndex="0">
+     <HeaderTemplate>
+         <TableRow>
+             <Selection Type="radio" Title="选择" RowSpan="2"></Selection>
+             @foreach (var jcol in get_disp_cols()) {
+                var col_uid = Convert.ToInt32(jcol!["col_uid"]!.GetValue<int>());
+                var sub_num = get_disp_cols(col_uid).Count();
+                var col_text = jcol!["col_text"]!.ToString();
+                if (sub_num == 0) {
+                    <TableHeader TData="string" Title="@col_text" RowSpan="2"></TableHeader>
+                    continue;
+                }
+                <SimpleTableHeader Title="@col_text" ColSpan="sub_num"></SimpleTableHeader>
+            }
+        </TableRow>
+        <TableRow>
+            <Selection Type="radio" Title="选择" RowSpan="2"></Selection>
+            @foreach (var jcol in get_disp_cols()) {
+                var col_uid = Convert.ToInt32(jcol!["col_uid"]!.GetValue<int>());
+                var col_text = jcol["col_text"]!.ToString();
+                var jcols1 = get_disp_cols(col_uid);
+                foreach (var jcol1 in jcols1) {
+                    col_text = jcol1!["col_text"]!.ToString();
+                    <TableHeader TData="string" Title="@col_text"></TableHeader>
+                }
+            }
+        </TableRow>
+    </HeaderTemplate>
+    <ChildContent>
+        @{
+            var key_value = Convert.ToString(context["col_uid"]);
+            <Selection Type="radio" Key="@key_value" Title="选择"></Selection>
+        }
+        @foreach (var jcol in get_disp_cols()) {
+            var col_uid = Convert.ToInt32(jcol!["col_uid"]!.GetValue<int>());
+            var col_width = Convert.ToString(jcol["col_width"]) + "px";
+            var col_name = Convert.ToString(jcol["col_name"]);
+            var col_data = string.IsNullOrEmpty(col_name) ? "" : Convert.ToString(context![col_name]);
+            var sub_num = get_disp_cols(col_uid).Count();
+            if (sub_num == 0) {
+                <PropertyColumn TItem="JsonObject" TProp="object" Width="@col_width" Property="_ => col_data"></PropertyColumn>
+                continue;
+            }
+            foreach (var jcol1 in get_disp_cols(col_uid)) {
+                <PropertyColumn TItem="JsonObject" TProp="object" Width="@col_width" Property="_ => col_data"></PropertyColumn>
+            }
+        }
+    </ChildContent>
+</Table>
+
+@code {
+    private JsonArray? jcols, jdatas;
+    private async void load_json_data() {
+        var http = new HttpClient();
+        jcols = JsonArray.Parse(await http.GetStringAsync("http://118.31.4.241/file/jdata/cols_sys_menu.json")) as JsonArray;
+        jdatas = JsonArray.Parse(await http.GetStringAsync("http://118.31.4.241/file/jdata/datas_sys_menu.json")) as JsonArray;
+        StateHasChanged();
+    }
+    private IEnumerable<JsonObject?> get_disp_cols(int puid = 0) {
+        if (jcols?.Any() != true) return Array.Empty<JsonObject>();
+        return from p in jcols
+               where Convert.ToInt32(p?["parent_uid"]?.GetValue<int>() ?? 0) == puid
+               select p as JsonObject;
+    }
+    private IEnumerable<JsonObject> get_disp_rows(JsonNode? jrow = null) {
+        if (jdatas?.Any() != true) return Array.Empty<JsonObject>();
+        var puid = Convert.ToInt32(jrow?["fun_uid"]?.GetValue<int>() ?? 0);
+        return from p in jdatas
+               where Convert.ToInt32(p?["parent_uid"]?.GetValue<int>() ?? 0) == puid
+               select p as JsonObject;
+    }
+}

@@ -1,0 +1,66 @@
+﻿@page "/page1"
+@using System.Text.Json.Nodes;
+
+<PageTitle>Tree1</PageTitle>
+<Title>分页后界面数据没有变化</Title>
+<Button Type="@ButtonType.Primary" OnClick="_ => load_json_data()">加载数据</Button>
+<Button Type="@ButtonType.Primary" OnClick="_ => { page_index ++; StateHasChanged(); }">加载第2页</Button>
+<Table 
+    Bordered RemoteDataSource HidePagination 
+    Size="@TableSize.Small" TItem="JsonObject"
+    PageIndex="@page_index" PageSize="@page_size"
+    DataSource="get_disp_rows()" Total="jdatas?.Count ?? 0">
+     <HeaderTemplate>
+        <TableRow>
+            <Selection Type="radio" Title="选择" RowSpan="2"></Selection>
+            @foreach (var jcol in get_disp_cols()) {
+                var col_text = jcol?["col_text"]!.ToString();
+                <TableHeader TData="string" Title="@col_text"></TableHeader>
+            }
+        </TableRow>
+    </HeaderTemplate>
+    <ChildContent>
+        @{
+            var key_value = Convert.ToString(context["param_uid"]);
+            <Selection Type="radio" Key="@key_value" Title="选择"></Selection>
+        }
+        @foreach (var jcol in get_disp_cols()) {
+            var col_uid = Convert.ToInt32(jcol!["col_uid"]!.GetValue<int>());
+            var col_width = Convert.ToString(jcol["col_width"]) + "px";
+            var col_name = Convert.ToString(jcol["col_name"]);
+            var col_data = string.IsNullOrEmpty(col_name) ? "" : Convert.ToString(context![col_name]);
+            var sub_num = get_disp_cols(col_uid).Count();
+            <PropertyColumn TItem="JsonObject" TProp="object" Width="@col_width" Property="_ => col_data"></PropertyColumn>
+        }
+    </ChildContent>
+    <PaginationTemplate>
+        <Pagination 
+            Total="context.Total" PageSize="context.PageSize" Current="context.PageIndex"
+            ShowSizeChanger HideOnSinglePage OnChange="on_page_changed">
+         </Pagination>
+    </PaginationTemplate>
+</Table>
+
+ @code {
+    private JsonArray? jcols, jdatas;
+    private int page_index = 1, page_size = 10;
+    private async void load_json_data() {
+        var http = new HttpClient();
+        jcols = JsonArray.Parse(await http.GetStringAsync("http://118.31.4.241/file/jdata/cols_sys_param.json")) as JsonArray;
+        jdatas = JsonArray.Parse(await http.GetStringAsync("http://118.31.4.241/file/jdata/datas_sys_param.json")) as JsonArray;
+        page_index = 1; StateHasChanged();
+    }
+    private IEnumerable<JsonObject?> get_disp_cols(int puid = 0) {
+        if (jcols?.Any() != true) return Array.Empty<JsonObject>();
+        return from p in jcols
+               where Convert.ToInt32(p?["parent_uid"]?.GetValue<int>() ?? 0) == puid
+               select p as JsonObject;
+    }
+    private IEnumerable<JsonObject> get_disp_rows(JsonNode? jrow = null) {
+        if (jdatas?.Any() != true) return Array.Empty<JsonObject>();
+        return from p in jdatas.Skip(page_size * (page_index - 1)).Take(page_size) select p as JsonObject;
+    }
+    private void on_page_changed(PaginationEventArgs e) {
+        page_index = e.Page; page_size = e.PageSize; StateHasChanged();
+    }
+}
